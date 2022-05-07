@@ -8,7 +8,7 @@ import time
 import random
 import subprocess
 
-SERVER_IP = "192.168.247.128"  # Remote address
+SERVER_IP = "127.0.0.1"  # Remote address
 PORT = 1234  # Remote port
 FORMAT = "utf-8"  # Message encoding format
 HEADER_SIZE = 10  # Message header size
