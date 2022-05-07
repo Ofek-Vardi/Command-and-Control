@@ -244,7 +244,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                 elif command[:3] == "cd ":  # Change directory on the client side
                     pass
                 elif command == "clear":  # Clear server side console screen
-                    os.system("clear")
+                    os.system('cls' if os.name == 'nt' else 'clear')
                 elif command[:9] == "download ":  # Download specified file from client side to server side
                     download_file(sock, command[9:])
                 elif command[:7] == "upload ":  # Download specified file from server side to client side
@@ -301,10 +301,10 @@ def main() -> None:
         if s:
             s.close()
         print("""\n
-             ██████   ██████   ██████  ██████  ██████  ██    ██ ███████ 
-            ██       ██    ██ ██    ██ ██   ██ ██   ██  ██  ██  ██      
-            ██   ███ ██    ██ ██    ██ ██   ██ ██████    ████   █████   
-            ██    ██ ██    ██ ██    ██ ██   ██ ██   ██    ██    ██      
+             ██████   ██████   ██████  ██████  ██████  ██    ██ ███████
+            ██       ██    ██ ██    ██ ██   ██ ██   ██  ██  ██  ██
+            ██   ███ ██    ██ ██    ██ ██   ██ ██████    ████   █████
+            ██    ██ ██    ██ ██    ██ ██   ██ ██   ██    ██    ██
              ██████   ██████   ██████  ██████  ██████     ██    ███████""")
 
 
