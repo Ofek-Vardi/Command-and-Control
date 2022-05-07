@@ -20,7 +20,7 @@ import termcolor
 #   5. Encryption implementation
 #   6. Send platform data from client to sever upon request
 #   7. Go over function docstrings
-#   8. Read global variable values from file upon flag usage
+#   8. Read global variable values from json file upon flag usage
 
 SERVER_IP = "0.0.0.0"  # Remote address
 PORT = 1234  # Remote port
