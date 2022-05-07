@@ -42,4 +42,3 @@ The following keywords are recognized by both client and server side for their r
 >`clear`: Clear server side terminal screen.\
 >`download TARGET_FILE_PATH`: Download target file from client to server.\
 >`upload TARGET_FILE_PATH`: Upload target file from server to client.
-
