@@ -18,7 +18,7 @@ TIMEOUT = 1  # Socket timeout when downloading / uploading files
 COOLDOWN = (1, 1)  # Range of time to sleep between consecutive connection attempts (In seconds)
 HIBERNATE = (1, 1)  # Range of time to hibernate after reaching maximum retries / Identifying a used port
 COMMAND_TIMEOUT = 10  # Time limit for command execution on the client side
-DOWNLOADS = pathlib.Path(__file__).parent
+DOWNLOADS = pathlib.Path(__file__).parent  # Downloaded files destination path
 
 
 def get_file_hash(data: list[bytes]) -> str:

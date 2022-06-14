@@ -22,7 +22,8 @@ import termcolor
 #   7. Go over function docstrings
 #   8. Read global variable values from json file upon flag usage
 
-SERVER_IP = "0.0.0.0"  # Remote address
+# SERVER_IP = socket.gethostbyname(socket.gethostname())  # Remote address
+SERVER_IP = "0.0.0.0"
 PORT = 1234  # Remote port
 FORMAT = "utf-8"  # Message encoding format
 HEADER_SIZE = 10  # Message header size
@@ -304,7 +305,8 @@ def establish_connection(s: socket.socket) -> None:
     sock = ""
     try:
         while True:
-            print(f"\n{clr('[*] Listening for incoming connections...')}")
+            print(f"\n{clr('[*] Server is running on -')} {SERVER_IP}")
+            print(f"{clr('[*] Listening for incoming connections...')}")
             sock, addr = s.accept()
             # FIXME
             #     Broadcast related
