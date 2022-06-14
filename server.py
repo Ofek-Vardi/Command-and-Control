@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-from multiprocessing.connection import Client
 import socket
 import os
 import platform
