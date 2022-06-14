@@ -294,7 +294,9 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                     upload_file(sock, command[9:])
     except ConnectionError as err:  # Socket connection error
         print(f"{clr('[!] ERROR: Current socket is no longer valid -')} {err}")
-    finally:  # Always close sockets when done
+    finally:
+        # Close & remove sock from clients list if user exists with 'exit' / 'quit'
+        # Do nothing if user exists with 'background' / 'bg'
         if sock and not maintain_session:
             sock.close()
             CLIENTS.remove((sock, addr))
