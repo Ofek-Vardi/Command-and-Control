@@ -34,12 +34,19 @@ The option to import values through a json file will be added in a later release
     - hashlib
     - datetime
     - termcolor
+    - threading
 
 ## Keyword Commands
 
-The following keywords are recognized by both client and server side for their respective actions:
+Session handling keywords:
 
-> `quit` / `exit`: Exit the current shell.
-> `clear`: Clear server side terminal screen.
-> `download TARGET_FILE_PATH`: Download target file from client to server.
-> `upload TARGET_FILE_PATH`: Upload target file from server to client.
+> `sessions`: Display all active sessions.\
+> `sessions -i SESSION_ID`: Reattach the specified session.
+
+The following keywords are recognized when attached to a client session:
+
+> `quit` / `exit`: Exit the current shell.\
+> `clear`: Clear server side terminal screen.\
+> `download TARGET_FILE_PATH`: Download target file from client to server.\
+> `upload TARGET_FILE_PATH`: Upload target file from server to client.\
+> `background` / `bg`: Background the current session.
