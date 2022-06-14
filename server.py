@@ -284,7 +284,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                 elif command[:9] == "download ":  # Download specified file from client side to server side
                     download_file(sock, command[9:])
                 elif command[:7] == "upload ":  # Download specified file from server side to client side
-                    upload_file(sock, command[9:])
+                    upload_file(sock, command[7:])
     except ConnectionError as err:  # Socket connection error
         print(f"{clr('[!] ERROR: Current socket is no longer valid -')} {err}")
     finally:  # Always close sockets when done
