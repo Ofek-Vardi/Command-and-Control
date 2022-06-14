@@ -308,7 +308,7 @@ def display_sessions() -> None:
 
     :return: None
     """
-    header = "ID\tCONNECTION\tADDRESS"
+    header = termcolor.colored("ID\tCONNECTION\tADDRESS", "yellow")
     print(header)
     print("-" * len(header))
     for i, session in enumerate(CLIENTS):
@@ -351,7 +351,7 @@ def handle_connections(s: socket.socket) -> None:
 
         # User terminal for session handling
         while True:
-            command = input(termcolor.colored("> ", "red"))
+            command = input(clr("> "))
             if command == "sessions":
                 display_sessions()
             elif command[:10] == "sessions -i ":
