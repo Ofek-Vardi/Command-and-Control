@@ -45,8 +45,8 @@ Session handling keywords:
 
 The following keywords are recognized when attached to a client session:
 
+> `background` / `bg`: Background the current session.\
 > `quit` / `exit`: Exit the current shell.\
 > `clear`: Clear server side terminal screen.\
 > `download TARGET_FILE_PATH`: Download target file from client to server.\
-> `upload TARGET_FILE_PATH`: Upload target file from server to client.\
-> `background` / `bg`: Background the current session.
+> `upload TARGET_FILE_PATH`: Upload target file from server to client.
