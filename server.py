@@ -357,7 +357,7 @@ def handle_connections(s: socket.socket) -> None:
             elif command[:10] == "sessions -i ":
                 i = command[10:]
                 if i.isdigit():
-                    if len(CLIENTS) > int(i) > 0:
+                    if 0 < int(i) < len(CLIENTS):
                         # Start a command line interface for the specified client
                         shell(CLIENTS[int(i)][0], CLIENTS[int(i)][1])
                     else:
