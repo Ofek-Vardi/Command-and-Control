@@ -301,6 +301,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
             sock.close()
             CLIENTS.remove((sock, addr))
 
+
 def display_sessions() -> None:
     """
     Prints a table of all connected clients.
@@ -371,7 +372,6 @@ def handle_connections(s: socket.socket) -> None:
     finally:
         if sock:
             sock.close()
-
 
 
 def main() -> None:
