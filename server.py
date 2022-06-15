@@ -346,15 +346,16 @@ def handle_connections(s: socket.socket) -> None:
         print(f"\n{clr('[*] Server is running on -')} {SERVER_IP}")
         print(f"{clr('[*] Listening for incoming connections...')}")
         # Accept connections in a seperate thread to avoid blocking the terminal
-        thread = threading.Thread(target=accept_new_connections, args=(s))
+        thread = threading.Thread(target=accept_new_connections, args=(s,))
+        thread.start()
 
         # User terminal for session handling
         while True:
             command = input(clr("> "))
             if command == "sessions":
                 display_sessions()
-            elif command[:10] == "sessions -i ":
-                i = command[10:]
+            elif command[:12] == "sessions -i ":
+                i = command[12:]
                 if i.isdigit():
                     if 0 < int(i) < len(CLIENTS):
                         # Start a command line interface for the specified client
