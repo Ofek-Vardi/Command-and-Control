@@ -56,8 +56,8 @@ The option to import values through a json file will be added in a later release
 
 **Client session keywords:**
 
-> `background` / `bg`: Background the current session.\
-> `quit` / `exit`: Exit the current shell.\
+> `background` / `bg`: Background shell and keep the current session active.\
+> `quit` / `exit`: Exit shell and close the current session.\
 > `clear`: Clear server side terminal screen.\
 > `download TARGET_FILE_PATH`: Download target file from client to server.\
 > `upload TARGET_FILE_PATH`: Upload target file from server to client.\
