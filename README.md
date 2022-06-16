@@ -48,10 +48,11 @@ The option to import values through a json file will be added in a later release
 
 **Session handling keywords:**
 
+> `exit` / `quit`: Close the server side script.\
+> `clear`: Clear server side terminal screen.\
 > `sessions`: Display all active sessions.\
 > `sessions -i SESSION_ID`: Reattach the specified session.\
-> `exit` / `quit`: Close the server side script.\
-> `clear`: Clear server side terminal screen.
+> `broadcast COMMAND`: Execute a command on all available targets.
 
 **Client session keywords:**
 
