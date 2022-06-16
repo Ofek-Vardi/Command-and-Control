@@ -13,10 +13,11 @@ Data segmentation and integrity verification are both implemented when downloadi
 Both scripts are extremely modular as most values are configured through the use of global variables.
 The option to import values through a json file will be added in a later release.
 
-## Dependencies (Server Side Only)
+## Installation
 
-    - termcolor
-    - prettytable
+    git clone https://github.com/Ofek-Vardi/Command-and-Control.git
+    pip install -r requirements.txt
+    python3 server.py
 
 ## Full Imports List
 
@@ -24,6 +25,7 @@ The option to import values through a json file will be added in a later release
 
     - socket
     - os
+    - sys
     - pathlib
     - hashlib
     - time
@@ -40,7 +42,7 @@ The option to import values through a json file will be added in a later release
     - datetime
     - termcolor
     - threading
-    - prettytable
+    - prettytable.PrettyTable
 
 ## Keyword Commands
 

