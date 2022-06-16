@@ -22,7 +22,6 @@ from prettytable import PrettyTable
 #   5. Send platform data from client to sever upon request
 #   6. Read global variable values from json file upon flag usage
 
-# SERVER_IP = socket.gethostbyname(socket.gethostname())  # Remote address
 SERVER_IP = "0.0.0.0"
 PORT = 1234  # Remote port
 FORMAT = "utf-8"  # Message encoding format
