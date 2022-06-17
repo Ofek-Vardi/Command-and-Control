@@ -6,8 +6,10 @@ import platform
 import pathlib
 import hashlib
 import datetime
+from time import asctime
 import termcolor
 import threading
+import logging
 from prettytable import PrettyTable
 
 # TODO:
@@ -401,6 +403,8 @@ def main() -> None:
 
     :return: None
     """
+    logging.basicConfig(level=logging.INFO, filename="c2.log", filemode="a",
+                        format=f"%(asctime)s %(levelname)s - %(message)s", datefmt="%d-%m-%Y %H:%M:%S")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Enable address reuse
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
