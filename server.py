@@ -14,7 +14,6 @@ from prettytable import PrettyTable
 from urllib3 import add_stderr_logger
 
 # TODO:
-#   1. Log file utility overhaul
 #   2. locks implementation
 #   3. Add 'offensive-python' project utilities:
 #       a. Display alert when client is visiting a blacklisted website
