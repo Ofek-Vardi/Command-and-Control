@@ -14,16 +14,14 @@ from prettytable import PrettyTable
 from urllib3 import add_stderr_logger
 
 # TODO:
-#   2. locks implementation
-#   3. Add 'offensive-python' project utilities:
+#   1. Add 'offensive-python' project utilities:
 #       a. Display alert when client is visiting a blacklisted website
 #       b. Send heartbeat from client to server to verify it is alive
 #       c. Display alert when duplicate mac address is found in the client's ARP table
 #       d. Log all alerts as events (Should include: When, where & what happened)
-#   4. Encryption implementation
-#   5. Send platform data from client to sever upon request
-#   6. Read global variable values from json file upon flag usage
-#   7. Fix upload / download for broadcast function
+#   2. Encryption implementation
+#   3. Read global variable values from json file upon flag usage
+#   4. Fix upload / download for broadcast function
 
 SERVER_IP = "0.0.0.0"
 PORT = 1234  # Remote port
@@ -245,7 +243,7 @@ def broadcast(command: str) -> None:
     logging.info(f"Broadcasting command to all available targets - {command}")
     for client in CLIENTS:
         try:
-            # FIXME
+            # FIXME:
             # if command[:9] == "download ":  # Download file from all clients
             #     download_file(client[0], command[9:])
             # elif command[:7] == "upload ":  # Upload file to all clients
