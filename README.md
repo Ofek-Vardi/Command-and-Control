@@ -36,12 +36,11 @@ The option to import values through a json file will be added in a later release
 
     - socket
     - os
-    - platform
     - pathlib
     - hashlib
-    - datetime
     - termcolor
     - threading
+    - logging
     - prettytable.PrettyTable
 
 ## Keyword Commands

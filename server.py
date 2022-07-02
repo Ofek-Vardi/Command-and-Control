@@ -2,16 +2,12 @@
 
 import socket
 import os
-import platform
 import pathlib
 import hashlib
-import datetime
-from time import asctime
 import termcolor
 import threading
 import logging
 from prettytable import PrettyTable
-from urllib3 import add_stderr_logger
 
 # TODO:
 #   1. Add 'offensive-python' project utilities:
