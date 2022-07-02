@@ -20,6 +20,9 @@ COOLDOWN = (1, 1)  # Range of time to sleep between consecutive connection attem
 HIBERNATE = (1, 1)  # Range of time to hibernate after reaching maximum retries / Identifying a used port
 COMMAND_TIMEOUT = 10  # Time limit for command execution on the client side
 DOWNLOADS = pathlib.Path(__file__).parent  # Downloaded files destination path
+OS = os.name  # Local operating system
+MUTEX = pathlib.Path(__file__).parent.joinpath("mutex")  # Path to mutex containing the current pid of this program
+REMOVE_MUTEX = True
 
 
 def get_file_hash(data: list[bytes]) -> str:
@@ -257,12 +260,73 @@ def establish_connection(sock: socket.socket, consecutive_connections: int) -> i
         return consecutive_connections
 
 
+def check_process_running(pid: str) -> bool:
+    """
+    Checks whether a given PID is currently being used by a running process.
+
+    :param pid: Process ID
+    :type pid: str
+    :return: True if PID belongs to a running process, False otherwise
+    :rtype: bool
+    """
+    # Not using the psutil library since it is not builtin, and client side shouldn't require any installations
+    # Check on a Windows based system
+    if OS == 'nt':
+        try:
+            output = subprocess.check_output(f'tasklist /nh /fi "PID eq {pid}"')
+            if f"{pid}" in output.decode():  # PID belongs to a running process
+                return True
+            return False  # No running process is using the given PID
+        except subprocess.CalledProcessError:
+            return False  # An error occurred when runnin command (Meaning process doesn't exist)
+
+    # Check on a Unix baseed system
+    else:
+        try:
+            os.kill(int(pid), 0)  # Throws error if PID doesn't exist, does nothing if it exists
+            # No exception raised (Meaning process exists)
+            return True
+        except ProcessLookupError:  # Process not found => errno.ESRCH
+            return False
+        except PermissionError:  # Unable to send signal to process (Means process exists) => errno.EPERM
+            return False
+
+
+def verify_mutex() -> None:
+    """
+    Verifies whether a mutex containing a valid PID already exists, creating one if it doesn't, quittting if it does.
+
+    :return: None
+    """
+    global REMOVE_MUTEX
+    # Verify this program isn't already running on the local system
+    if os.path.isfile(MUTEX):  # Mutex containing current PID exists
+        # Retrive PID
+        with open(MUTEX, "r") as f:
+            pid = f.read()
+
+        # Verify PID is currently running
+        if check_process_running(pid):
+            # Another instance of this program is already running on the local system, aborting...
+            print(f"Program already running, aborting...")
+            REMOVE_MUTEX = False
+            sys.exit()
+
+    # Create new MUTEX
+    with open(MUTEX, "w") as f:
+        f.write(str(os.getpid()))  # Write this program's PID into MUTEX
+
+
 def main() -> None:
     """
     Main function for the C&C client side.
 
     :return: None
     """
+    # Verify program isn't already running and create mutex
+    verify_mutex()
+
+    # Start program execution
     consecutive_connections = 1
     s = ""
     # Establish client side
@@ -283,3 +347,6 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
+    finally:
+        if REMOVE_MUTEX:
+            os.remove(MUTEX)
