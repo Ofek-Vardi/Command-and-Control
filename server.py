@@ -320,11 +320,12 @@ def display_sessions() -> None:
 
     # Add connected clients to table
     for i, session in enumerate(CLIENTS):
-        addr = CLIENTS[i][1][0]
-        port = CLIENTS[i][1][1]
+        addr = CLIENTS[i][1][0]  # [i] refers to session index, [1] refers to addr index, [0] refers to ip_addr index
+        port = CLIENTS[i][1][1]  # [i] refers to session index, [1] refers to addr index, [0] refers to port index
         data = f"{addr}:{port}"
         clients_info_table.add_row([i, data])
 
+    # Display table
     print(clients_info_table)
 
 
