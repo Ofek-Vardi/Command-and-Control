@@ -300,7 +300,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
     finally:
         # Close & remove sock from clients list if user exists with 'exit' / 'quit'
         # Do nothing if user exists with 'background' / 'bg'
-        if sock and not maintain_session:
+        if not maintain_session:
             sock.close()
             logging.info(f"{addr} - Removing target from database.")
             CLIENTS.remove((sock, addr))
@@ -320,8 +320,8 @@ def display_sessions() -> None:
 
     # Add connected clients to table
     for i, session in enumerate(CLIENTS):
-        addr = CLIENTS[i][1][0]  # [i] refers to session index, [1] refers to addr index, [0] refers to ip_addr index
-        port = CLIENTS[i][1][1]  # [i] refers to session index, [1] refers to addr index, [0] refers to port index
+        addr = session[1][0]  # [1] refers to addr index, [0] refers to ip_addr index
+        port = session[1][1]  # 1st [1] refers to addr index, 2nd [1] refers to port index
         data = f"{addr}:{port}"
         clients_info_table.add_row([i, data])
 
