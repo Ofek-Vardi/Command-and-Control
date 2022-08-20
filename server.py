@@ -309,6 +309,7 @@ def shell(sock: socket.socket, addr: tuple[str, int]) -> None:
         if not maintain_session:
             sock.close()
 
+
 def display_sessions() -> None:
     """
     Prints a table of all connected clients.
