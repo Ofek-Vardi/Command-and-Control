@@ -7,7 +7,7 @@ Once communication is established, it allows command execution on the client sid
 as well as uploading / downloading files between the client and server.\
 
 All communication is done over `AF_INET, SOCK_STREAM` sockets (IPv4, TCP).
-TCP  methodology is imlemented when sending commands / receiving output, by appending headers of set size to every message.
+TCP  methodology is imlemented when sending commands / receiving output, by preppending headers of set size to every message.
 Data segmentation and integrity verification are both implemented when downloading / uploading files.
 
 Both scripts are extremely modular as most values are configured through the use of global variables.
