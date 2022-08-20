@@ -10,13 +10,8 @@ import logging
 from prettytable import PrettyTable
 
 # TODO:
-#   1. Add 'offensive-python' project utilities:
-#       a. Display alert when client is visiting a blacklisted website
-#       b. Send heartbeat from client to server to verify it is alive
-#       c. Display alert when duplicate mac address is found in the client's ARP table
-#       d. Log all alerts as events (Should include: When, where & what happened)
-#   2. Encryption implementation
-#   3. Read global variable values from json file upon flag usage
+#   1. Encryption implementation
+#   2. Read global variable values from json file upon flag usage
 #   4. Fix upload / download for broadcast function
 
 SERVER_IP = "0.0.0.0"
